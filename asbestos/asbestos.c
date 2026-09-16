@@ -440,12 +440,16 @@ int cpu_run_to_interrupt(struct cpu_state *cpu, struct tlb *tlb) {
     if (!list_empty(&asbestos->jetsam)) {
         unlock(&asbestos->lock);
 
-        // Write lock ensures all JIT threads have exited (they hold read lock).
-        write_wrlock(&asbestos->jetsam_lock);
-        lock(&asbestos->lock);
-        fiber_free_jetsam(asbestos);
-        unlock(&asbestos->lock);
-        write_wrunlock(&asbestos->jetsam_lock);
+        // The caller still holds mem->lock for reading. An executing thread
+        // can hold jetsam_lock for reading while upgrading mem->lock for CoW.
+        // Waiting here would invert those locks and deadlock both threads.
+        // Retired blocks remain on jetsam until an uncontended cleanup pass.
+        if (write_wrtrylock(&asbestos->jetsam_lock)) {
+            lock(&asbestos->lock);
+            fiber_free_jetsam(asbestos);
+            unlock(&asbestos->lock);
+            write_wrunlock(&asbestos->jetsam_lock);
+        }
     } else {
         unlock(&asbestos->lock);
     }
