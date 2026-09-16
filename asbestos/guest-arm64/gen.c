@@ -1959,10 +1959,12 @@ static int gen_ldst(struct gen_state *state, uint32_t insn) {
 
     // Atomic compare-and-swap (CAS/CASA/CASL/CASAL)
     // Encoding: size:001000:1:A:1:Rs:R:11111:Rn:Rt
-    // A=acquire (bit23), R=release (bit15)
-    if ((insn & 0x3f200c00) == 0x08200c00) {
+    // Bit23 is fixed to 1 and Rt2 is fixed to 11111. Both distinguish
+    // CAS from LDXP/STXP, whose second register can also end in binary 11.
+    // A=acquire (bit22), R=release (bit15)
+    if ((insn & 0x3fa07c00) == 0x08a07c00) {
         uint32_t size = (insn >> 30) & 0x3;
-        uint32_t A = (insn >> 23) & 1;    // acquire
+        uint32_t A = (insn >> 22) & 1;    // acquire
         uint32_t R = (insn >> 15) & 1;    // release
         uint32_t rs = (insn >> 16) & 0x1f;  // expected value (and result)
         uint32_t rn = (insn >> 5) & 0x1f;
@@ -2949,9 +2951,10 @@ static int gen_ldst(struct gen_state *state, uint32_t insn) {
         if (base_opcode == 0) {
             elem_size = 1;
             lane = (Q << 3) | (S << 2) | size;
-        } else if (base_opcode == 2) {
+        } else if (base_opcode == 2 && (size & 1) == 0) {
             elem_size = 2;
-            lane = (Q << 2) | (S << 1) | (size & 1);
+            // Halfword index is Q:S:size[1]; size[0] is reserved zero.
+            lane = (Q << 2) | (S << 1) | (size >> 1);
         } else if (base_opcode == 4 && size == 0) {
             elem_size = 4;
             lane = (Q << 1) | S;
@@ -3056,9 +3059,10 @@ static int gen_ldst(struct gen_state *state, uint32_t insn) {
         if (base_opcode == 0) {
             elem_size = 1;
             lane = (Q << 3) | (S << 2) | size;
-        } else if (base_opcode == 2) {
+        } else if (base_opcode == 2 && (size & 1) == 0) {
             elem_size = 2;
-            lane = (Q << 2) | (S << 1) | (size & 1);
+            // Same lane encoding for immediate/register post-index forms.
+            lane = (Q << 2) | (S << 1) | (size >> 1);
         } else if (base_opcode == 4 && size == 0) {
             elem_size = 4;
             lane = (Q << 1) | S;

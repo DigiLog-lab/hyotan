@@ -2510,13 +2510,17 @@ stxr_segfault:
     cmp x26, #3
     b.eq ldxp_c_64
     bl NAME(c_ldp32)
+    // c_ldp32 writes only four bytes to each output. W loads also clear
+    // the high half of the guest X registers, as required for LDXP Wt.
+    ldr w20, [sp]
+    ldr w21, [sp, #8]
     b ldxp_c_done
 ldxp_c_64:
     bl NAME(c_ldp64)
-ldxp_c_done:
-    mov w19, w0                  // save result
     ldr x20, [sp]               // val1
     ldr x21, [sp, #8]           // val2
+ldxp_c_done:
+    mov w19, w0                  // save result
     add sp, sp, #16
     restore_c
     mov _addr, x24               // restore _addr
@@ -2540,4 +2544,3 @@ ldxp_c_segfault:
     strb wzr, [_cpu, #CPU_segfault_was_write]
     mov w0, #INT_GPF
     b fiber_exit
-
