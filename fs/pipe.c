@@ -1,15 +1,52 @@
 #include <sys/stat.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <poll.h>
+#include <errno.h>
+#include <pthread.h>
 #include "kernel/calls.h"
 #include "fs/fd.h"
 #include "fs/real.h"
 #include "debug.h"
 
+// Host pipes stay nonblocking; Linux blocking semantics are implemented with
+// bounded waits so group exit cannot miss the one-shot host wakeup signal.
+static ssize_t pipe_io(struct fd *fd, void *buffer, size_t size, bool writing) {
+    for (;;) {
+        if (current->group->doing_group_exit) return _EINTR;
+        ssize_t result = writing ? write(fd->real_fd, buffer, size) : read(fd->real_fd, buffer, size);
+        if (result >= 0) return result;
+        if (errno != EAGAIN && errno != EWOULDBLOCK) return errno_map();
+        if (fd->flags & O_NONBLOCK_) return _EAGAIN;
+        struct pollfd descriptor = {.fd = fd->real_fd, .events = writing ? POLLOUT : POLLIN};
+        if (poll(&descriptor, 1, 50) < 0) return errno_map();
+    }
+}
+static ssize_t pipe_read(struct fd *fd, void *buffer, size_t size) {
+    return pipe_io(fd, buffer, size, false);
+}
+static ssize_t pipe_write(struct fd *fd, const void *buffer, size_t size) {
+    return pipe_io(fd, (void *)buffer, size, true);
+}
+static struct fd_ops pipe_ops;
+static pthread_once_t pipe_once = PTHREAD_ONCE_INIT;
+static void init_pipe_ops(void) {
+    pipe_ops = realfs_fdops;
+    pipe_ops.read = pipe_read;
+    pipe_ops.write = pipe_write;
+    pipe_ops.getflags = NULL;
+    pipe_ops.setflags = NULL;
+}
+
 static fd_t pipe_f_create(int pipe_fd, int flags) {
-    struct fd *fd = adhoc_fd_create(&realfs_fdops);
+    pthread_once(&pipe_once, init_pipe_ops);
+    if (fcntl(pipe_fd, F_SETFL, fcntl(pipe_fd, F_GETFL) | O_NONBLOCK) < 0)
+        return errno_map();
+    struct fd *fd = adhoc_fd_create(&pipe_ops);
     if (fd == NULL)
         return _ENOMEM;
     fd->real_fd = pipe_fd;
+    fd->flags = flags & ~O_CLOEXEC_;
     fd->stat.mode = S_IFIFO | 0660;
     fd->stat.uid = current->uid;
     fd->stat.gid = current->gid;
@@ -32,7 +69,7 @@ int_t sys_pipe2(addr_t pipe_addr, int_t flags) {
     err = fp[0] = pipe_f_create(p[0], flags);
     if (fp[0] < 0)
         goto close_pipe;
-    err = fp[1] = pipe_f_create(p[1], flags);
+    err = fp[1] = pipe_f_create(p[1], flags | O_WRONLY_);
     if (fp[1] < 0)
         goto close_fake_0;
 
