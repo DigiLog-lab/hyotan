@@ -20,6 +20,7 @@ struct mm *mm_new() {
     mm->start_brk = mm->brk = 0; // should get overwritten by exec
     mm->exefile = NULL;
     mm->refcount = 1;
+    atomic_init(&mm->dumpable, true);
     return mm;
 }
 
@@ -28,6 +29,7 @@ struct mm *mm_copy(struct mm *mm) {
     if (new_mm == NULL)
         return NULL;
     *new_mm = *mm;
+    atomic_init(&new_mm->dumpable, atomic_load(&mm->dumpable));
     // Fix wrlock_init failing because it thinks it's reinitializing the same lock
     memset(&new_mm->mem.lock, 0, sizeof(new_mm->mem.lock));
     new_mm->refcount = 1;

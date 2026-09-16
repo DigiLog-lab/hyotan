@@ -84,6 +84,7 @@ struct task *task_create_(struct task *parent) {
     }
     unlock(&pids_lock);
 
+    task->parent_death_signal = 0;
     task->pending = 0;
     list_init(&task->queue);
     task->clear_tid = 0;

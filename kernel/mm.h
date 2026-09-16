@@ -19,6 +19,8 @@ extern _Atomic long anon_page_count;
 // uses mem.lock instead of having a lock of its own
 struct mm {
     atomic_uint refcount;
+    // Linux PR_SET_DUMPABLE state shared by threads, inherited across fork.
+    atomic_bool dumpable;
     struct mem mem;
 
     addr_t vdso; // immutable

@@ -133,6 +133,10 @@ static int proc_pid_auxv_show(struct proc_entry *entry, struct proc_data *buf) {
     lock(&task->general_lock);
     if (task->mm == NULL)
         goto out_free_task;
+    if (task->mm != current->mm && !atomic_load(&task->mm->dumpable)) {
+        err = _EACCES;
+        goto out_free_task;
+    }
 
     size_t size = task->mm->auxv_end - task->mm->auxv_start;
     char *data = malloc(size);
@@ -239,6 +243,10 @@ static int proc_pid_maps_show(struct proc_entry *entry, struct proc_data *buf) {
     struct task *task = proc_get_task(entry);
     if (task == NULL)
         return _ESRCH;
+    if (task->mm != current->mm && task->mm != NULL && !atomic_load(&task->mm->dumpable)) {
+        proc_put_task(task);
+        return _EACCES;
+    }
     proc_maps_dump(task, buf);
     proc_put_task(task);
     return 0;
@@ -248,6 +256,10 @@ static ssize_t proc_pid_mem_pread(struct proc_entry *entry, struct proc_data *bu
     struct task *task = proc_get_task(entry);
     if (task == NULL)
         return _ESRCH;
+    if (task->mm != current->mm && task->mm != NULL && !atomic_load(&task->mm->dumpable)) {
+        proc_put_task(task);
+        return _EACCES;
+    }
     int result = user_read_task(task, (addr_t)offset, buf->data, buf->size);
     proc_put_task(task);
     return result ? -1 : buf->size;
@@ -257,6 +269,10 @@ static ssize_t proc_pid_mem_pwrite(struct proc_entry *entry, struct proc_data *b
     struct task *task = proc_get_task(entry);
     if (task == NULL)
         return _ESRCH;
+    if (task->mm != current->mm && task->mm != NULL && !atomic_load(&task->mm->dumpable)) {
+        proc_put_task(task);
+        return _EACCES;
+    }
     int result = user_write_task_ptrace(task, (addr_t)offset, buf->data, buf->size);
     proc_put_task(task);
     return result ? -1 : buf->size;

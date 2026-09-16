@@ -132,6 +132,8 @@ noreturn void do_exit(int status) {
     struct task *new_parent = find_new_parent(current);
     struct task *child, *tmp;
     list_for_each_entry_safe(&current->children, child, tmp, siblings) {
+        if (child->parent_death_signal != 0)
+            send_signal(child, child->parent_death_signal, SIGINFO_NIL);
         child->parent = new_parent;
         list_remove(&child->siblings);
         list_add(&new_parent->children, &child->siblings);

@@ -71,6 +71,7 @@ struct task {
 
     // locked by pids_lock
     struct task *parent;
+    int parent_death_signal;
     struct list children;
     struct list siblings;
 

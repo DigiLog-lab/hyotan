@@ -10,6 +10,8 @@ static struct task *find_child(pid_t_ pid) {
     struct task *child = NULL;
     list_for_each_entry(&current->children, child, siblings) {
         if (child->pid == pid) {
+            if (child->mm == NULL || !atomic_load(&child->mm->dumpable))
+                continue;
             lock(&child->ptrace.lock);
             if (child->ptrace.stopped) {
                 goto found;

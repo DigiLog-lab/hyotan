@@ -1,11 +1,33 @@
 #include <string.h>
 #include "kernel/calls.h"
 
+#define PRCTL_GET_DUMPABLE_ 3
+#define PRCTL_SET_DUMPABLE_ 4
 #define PRCTL_SET_KEEPCAPS_ 8
 #define PRCTL_SET_NAME_ 15
 
 int_t sys_prctl(dword_t option, addr_t arg2, addr_t UNUSED(arg3), addr_t UNUSED(arg4), addr_t UNUSED(arg5)) {
     switch (option) {
+        case 1: // PR_SET_PDEATHSIG
+            if (arg2 >= NUM_SIGS) return _EINVAL;
+            lock(&pids_lock);
+            current->parent_death_signal = arg2;
+            unlock(&pids_lock);
+            return 0;
+        case 2: { // PR_GET_PDEATHSIG
+            int signal;
+            lock(&pids_lock);
+            signal = current->parent_death_signal;
+            unlock(&pids_lock);
+            return user_put(arg2, signal) ? _EFAULT : 0;
+        }
+        case PRCTL_GET_DUMPABLE_:
+            return atomic_load(&current->mm->dumpable);
+        case PRCTL_SET_DUMPABLE_:
+            if (arg2 > 1)
+                return _EINVAL;
+            atomic_store(&current->mm->dumpable, arg2 != 0);
+            return 0;
         case PRCTL_SET_KEEPCAPS_:
             // stub
             return 0;
