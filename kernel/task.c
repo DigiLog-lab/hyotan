@@ -179,10 +179,15 @@ void task_run_current() {
         if (self->mem == NULL) {
             pthread_exit(NULL);
         }
+        // Only one guest CPU may retain translated pointers in this address
+        // space while CoW temporarily upgrades its page-table lock. Syscalls
+        // execute after releasing this lock and may still block concurrently.
+        lock(&self->mem->cow_lock);
         read_wrlock(&self->mem->lock);
         tlb_refresh(tlb, &self->mem->mmu);
         int interrupt = cpu_run_to_interrupt(cpu, tlb);
         read_wrunlock(&self->mem->lock);
+        unlock(&self->mem->cow_lock);
         handle_interrupt(interrupt);
     }
 
