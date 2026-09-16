@@ -215,6 +215,10 @@ if get_option('kernel') == 'ish'
         executable('ish', ['main.c'], dependencies: ish)
     endif
 
+    if get_option('agentcase')
+        subdir('agentcase')
+    endif
+
 elif get_option('kernel') == 'linux'
     kernel_src = [
         'linux/main.c',
