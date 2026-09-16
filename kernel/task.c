@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include <pthread.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -198,6 +199,12 @@ void task_run_current() {
 
 static void *task_thread(void *vtask) {
     current = vtask;
+    // iOS launches the initial guest from a libdispatch worker. Do not inherit
+    // its blocked wakeup signal: guest signals must interrupt host syscalls.
+    sigset_t wakeup;
+    sigemptyset(&wakeup);
+    sigaddset(&wakeup, SIGUSR1);
+    pthread_sigmask(SIG_UNBLOCK, &wakeup, NULL);
     update_thread_name();
     task_run_current();
     die("task_thread returned"); // above function call should never return
