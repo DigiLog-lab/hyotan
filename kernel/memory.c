@@ -321,8 +321,17 @@ static page_t pt_find_hole_high(struct mem *mem, pages_t size) {
             if (subtree_end > USER_ADDR_MAX_PAGE)
                 subtree_end = USER_ADDR_MAX_PAGE;
             hole_size = subtree_end - hole_start;
-            if (hole_size >= size)
-                return hole_start;
+            if (hole_size >= size) {
+                page_t next = hole_start;
+                for (struct mem_reservation *r = mem->reservations; r; r = r->next) {
+                    if (r->start < hole_start + size && r->start + r->pages > hole_start)
+                        if (r->start + r->pages > next) next = r->start + r->pages;
+                }
+                if (next == hole_start) return hole_start;
+                page = next;
+                hole_size = 0;
+                continue;
+            }
             page = subtree_end;
             continue;
         }
@@ -493,7 +502,7 @@ page_t pt_find_hole(struct mem *mem, pages_t size) {
 #endif // GUEST_ARM64
 
 bool pt_is_hole(struct mem *mem, page_t start, pages_t pages) {
-    for (page_t page = start; page < start + pages; page++) {
+    for (page_t page = start; page < start + pages; mem_next_page(mem, &page)) {
         if (mem_pt(mem, page) != NULL)
             return false;
     }
@@ -600,6 +609,33 @@ int pt_map_nothing(struct mem *mem, page_t start, pages_t pages, unsigned flags)
 #define P_META_FLAGS (P_ANONYMOUS | P_GROWSDOWN | P_COW | P_SHARED)
 
 int pt_set_flags(struct mem *mem, page_t start, pages_t pages, int flags) {
+#ifdef GUEST_ARM64
+    // Split lazy ranges at protection boundaries before changing permissions.
+    for (struct mem_reservation *r = mem->reservations; r; r = r->next) {
+        page_t end = start + pages, r_end = r->start + r->pages;
+        if (r->start >= end || r_end <= start) continue;
+        if (r->start < start) {
+            struct mem_reservation *tail = malloc(sizeof(*tail));
+            if (!tail) return _ENOMEM;
+            *tail = *r;
+            tail->start = start;
+            tail->pages = r_end - start;
+            r->pages = start - r->start;
+            r->next = tail;
+            r = tail;
+        }
+        if (r_end > end) {
+            struct mem_reservation *tail = malloc(sizeof(*tail));
+            if (!tail) return _ENOMEM;
+            *tail = *r;
+            tail->start = end;
+            tail->pages = r_end - end;
+            r->pages = end - r->start;
+            r->next = tail;
+        }
+        r->flags = flags | (r->flags & P_META_FLAGS);
+    }
+#endif
     for (page_t page = start; page < start + pages; page++) {
         if (mem_pt(mem, page) == NULL) {
             if (mem_find_reservation(mem, page) != NULL)

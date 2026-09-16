@@ -64,15 +64,14 @@ static addr_t do_mmap(addr_t addr, uint64_t len, dword_t prot, dword_t flags, fd
             return _EINVAL;
         page = PAGE(addr);
 #ifdef GUEST_ARM64
-        // Reject hints above 4GB to prevent Go's scavengeIndex metadata
-        // collision (Go tries arenas at 0x4000000000 whose metadata lands
-        // at 0x80000, colliding with program text). Also reject hints that
-        // would overlap the stack. Hints within the low 4GB are allowed —
-        // V8 Wasm guard regions legitimately need large mappings near the
-        // stack region (e.g. 0xee400000 + 256MB).
-        if (page >= 0x100000 || page + pages > STACK_TOP_PAGE) {
-            if (flags & MMAP_FIXED)
-                return _ENOMEM;
+        // ARM64 has a 48-bit guest address space. V8 reserves aligned ranges
+        // above 4GB and subsequently commits pages there with MAP_FIXED.
+        bool high_reserved = mem_find_reservation(current->mem, page) != NULL
+            || mem_pt(current->mem, page) != NULL;
+        bool large_reservation = len >= (1ULL << 30) && prot == 0;
+        if ((page >= 0x100000 && !high_reserved && !large_reservation)
+                || page >= MEM_PAGES || pages > MEM_PAGES - page) {
+            if (flags & MMAP_FIXED) return _ENOMEM;
             addr = 0;
             page = 0;
         }
@@ -94,12 +93,9 @@ static addr_t do_mmap(addr_t addr, uint64_t len, dword_t prot, dword_t flags, fd
         // so don't count them against the anonymous page limit.
         bool is_prot_none = !(prot & P_READ) && !(prot & P_WRITE) && !(prot & P_EXEC);
 #ifdef GUEST_ARM64
-        if ((flags & MMAP_NORESERVE) && pages > 0x10000) {
-            pages_t align_pages = pages;
-            if (align_pages > 0x40000) align_pages = 0x40000;
-            page_t aligned = (page / align_pages) * align_pages;
-            if (aligned >= MMAP_HOLE_END && pt_is_hole(current->mem, aligned, pages))
-                page = aligned;
+        if (((flags & MMAP_NORESERVE) || is_prot_none) && pages > 0x10000) {
+            if (flags & MMAP_FIXED)
+                pt_unmap_always(current->mem, page, pages);
             if ((err = pt_map_lazy(current->mem, page, pages, prot)) < 0)
                 return err;
             return page << PAGE_BITS;
