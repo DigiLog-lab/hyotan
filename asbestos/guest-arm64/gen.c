@@ -423,6 +423,9 @@ extern void gadget_trn1_vec(void);         // TRN1 Vd, Vn, Vm (transpose even)
 extern void gadget_trn2_vec(void);         // TRN2 Vd, Vn, Vm (transpose odd)
 extern void gadget_zip1_vec(void);         // ZIP1 Vd, Vn, Vm (zip lower halves)
 extern void gadget_zip2_vec(void);         // ZIP2 Vd, Vn, Vm (zip upper halves)
+extern void gadget_rev16_vec(void);        // REV16 Vd, Vn (reverse bytes in 16-bit elements)
+extern void gadget_fcvtn_ds_vec(void);     // FCVTN/FCVTN2 Vd, Vn (double to single)
+extern void gadget_fcvtl_sd_vec(void);     // FCVTL/FCVTL2 Vd, Vn (single to double)
 extern void gadget_rev32_vec(void);        // REV32 Vd, Vn (reverse bytes in 32-bit elements)
 extern void gadget_rev64_vec(void);        // REV64 Vd, Vn (reverse bytes in 64-bit elements)
 extern void gadget_rbit_vec(void);         // RBIT Vd.xB, Vn.xB (reverse bits in each byte)
@@ -5100,6 +5103,37 @@ skip_three_different:
 
         gen(state, (unsigned long) gadget);
         gen(state, rd | (rn << 8));
+        return 1;
+    }
+
+    // FCVTL/FCVTL2 (vector), single to double. Q selects the source half.
+    if ((insn & 0xbffffc00) == 0x0e617800) {
+        uint32_t Q = (insn >> 30) & 1;
+        uint32_t rn = (insn >> 5) & 0x1f;
+        uint32_t rd = insn & 0x1f;
+        gen(state, (unsigned long) gadget_fcvtl_sd_vec);
+        gen(state, rd | (rn << 8) | (Q << 24));
+        return 1;
+    }
+
+    // FCVTN/FCVTN2 (vector), double to single. Q selects the low/high
+    // destination half; FCVTN2 retains the existing low 64 bits.
+    if ((insn & 0xbffffc00) == 0x0e616800) {
+        uint32_t Q = (insn >> 30) & 1;
+        uint32_t rn = (insn >> 5) & 0x1f;
+        uint32_t rd = insn & 0x1f;
+        gen(state, (unsigned long) gadget_fcvtn_ds_vec);
+        gen(state, rd | (rn << 8) | (Q << 24));
+        return 1;
+    }
+
+    // REV16 (vector): only byte elements are valid; Q selects 8B or 16B.
+    if ((insn & 0xbffffc00) == 0x0e201800) {
+        uint32_t Q = (insn >> 30) & 1;
+        uint32_t rn = (insn >> 5) & 0x1f;
+        uint32_t rd = insn & 0x1f;
+        gen(state, (unsigned long) gadget_rev16_vec);
+        gen(state, rd | (rn << 8) | (Q << 24));
         return 1;
     }
 

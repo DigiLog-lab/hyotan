@@ -5717,6 +5717,78 @@ msub_store:
     gret
 
 /*
+ * FCVTL/FCVTL2 - Widen two singles to doubles.
+ * Code stream: [gadget addr][rd | rn<<8 | Q<<24]
+ */
+.gadget fcvtl_sd_vec
+    ldr x8, [_pc]
+    add _pc, _pc, #8
+    and x9, x8, #0x1f
+    ubfx x10, x8, #8, #5
+    ubfx x12, x8, #24, #1
+    add x13, _cpu, #CPU_fp
+    add x14, x13, x9, lsl #4
+    add x15, x13, x10, lsl #4
+    ldr q0, [x15]
+    cbz x12, .Lfcvtl_sd_low
+    fcvtl2 v1.2d, v0.4s
+    b .Lfcvtl_sd_store
+.Lfcvtl_sd_low:
+    fcvtl v1.2d, v0.2s
+.Lfcvtl_sd_store:
+    str q1, [x14]
+    gret
+
+/*
+ * FCVTN/FCVTN2 - Narrow two doubles to singles.
+ * Code stream: [gadget addr][rd | rn<<8 | Q<<24]
+ */
+.gadget fcvtn_ds_vec
+    ldr x8, [_pc]
+    add _pc, _pc, #8
+    and x9, x8, #0x1f
+    ubfx x10, x8, #8, #5
+    ubfx x12, x8, #24, #1
+    add x13, _cpu, #CPU_fp
+    add x14, x13, x9, lsl #4
+    add x15, x13, x10, lsl #4
+    ldr q0, [x15]
+    cbz x12, .Lfcvtn_ds_low
+    ldr q1, [x14]
+    fcvtn2 v1.4s, v0.2d
+    str q1, [x14]
+    gret
+.Lfcvtn_ds_low:
+    fcvtn v1.2s, v0.2d
+    str d1, [x14]
+    str xzr, [x14, #8]
+    gret
+
+/*
+ * REV16 - Reverse bytes in each 16-bit element (vector).
+ * Code stream: [gadget addr][rd | rn<<8 | Q<<24]
+ */
+.gadget rev16_vec
+    ldr x8, [_pc]
+    add _pc, _pc, #8
+    and x9, x8, #0x1f
+    ubfx x10, x8, #8, #5
+    ubfx x12, x8, #24, #1
+    add x13, _cpu, #CPU_fp
+    add x14, x13, x9, lsl #4
+    add x15, x13, x10, lsl #4
+    ldr q0, [x15]
+    cbz x12, .Lrev16_low
+    rev16 v0.16b, v0.16b
+    str q0, [x14]
+    gret
+.Lrev16_low:
+    rev16 v0.8b, v0.8b
+    str d0, [x14]
+    str xzr, [x14, #8]
+    gret
+
+/*
  * REV32 - Reverse bytes in 32-bit elements (vector)
  * Code stream: [gadget addr][rd | rn<<8 | size<<16 | Q<<24]
  *
