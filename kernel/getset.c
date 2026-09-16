@@ -15,7 +15,7 @@ pid_t_ sys_getppid() {
     pid_t_ ppid;
     lock(&pids_lock);
     if (current->parent != NULL)
-        ppid = current->parent->pid;
+        ppid = current->parent->tgid;
     else
         ppid = 0;
     unlock(&pids_lock);
