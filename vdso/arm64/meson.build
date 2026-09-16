@@ -8,7 +8,11 @@
 # On Linux, you can use the native compiler if running on arm64, or a cross compiler.
 
 # Try to find an aarch64 compiler
-clang = find_program('/usr/local/opt/llvm/bin/clang', '/opt/homebrew/opt/llvm/bin/clang', '/opt/local/bin/clang', 'clang', required: false)
+if get_option('vdso_cc') != ''
+    clang = find_program(get_option('vdso_cc'), required: true)
+else
+    clang = find_program('/usr/local/opt/llvm/bin/clang', '/opt/homebrew/opt/llvm/bin/clang', '/opt/local/bin/clang', 'clang', required: false)
+endif
 
 if clang.found()
     # Check if the compiler supports aarch64 target
