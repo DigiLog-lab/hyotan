@@ -195,152 +195,22 @@ noreturn void do_exit_group(int status) {
     struct tgroup *group = current->group;
     lock(&pids_lock);
     lock(&group->lock);
-    bool is_group_leader = false;
     if (!group->doing_group_exit) {
         group->doing_group_exit = true;
         group->group_exit_code = status;
-        is_group_leader = true;  // First thread to call exit_group
     } else {
         status = group->group_exit_code;
     }
 
-    // kill everyone else in the group
-    int thread_count = 0;
+    // Request cooperative exit of every guest thread. Each thread retains
+    // its mm/files until it leaves its current syscall and calls do_exit.
+    // The last exiting thread marks the leader zombie and notifies waitpid.
+    // Never free another live host thread's resources after a timeout.
     struct task *task;
     list_for_each_entry(&group->threads, task, group_links) {
-        thread_count++;
         deliver_signal(task, SIGKILL_, SIGINFO_NIL);
         task->group->stopped = false;
         notify(&task->group->stopped_cond);
-    }
-    (void)is_group_leader;
-
-    // Only the first thread (group leader) waits for others to exit
-    // Other threads exit immediately to avoid deadlock
-    if (is_group_leader && thread_count > 1) {
-        unlock(&group->lock);
-        unlock(&pids_lock);
-
-        // Wait for threads to exit (they're DETACHED so we can't join)
-        // Poll the thread count until only current thread remains
-        int max_wait_ms = 500 + thread_count * 10;  // Scale with thread count
-        if (max_wait_ms > 5000) max_wait_ms = 5000;  // Cap at 5s
-        int wait_interval_ms = 10;  // Check every 10ms
-        int waited_ms = 0;
-        int last_remaining = -1;
-
-        while (waited_ms < max_wait_ms) {
-            lock(&pids_lock);
-            lock(&group->lock);
-
-            // Count threads still in the group (excluding current)
-            int remaining = 0;
-            list_for_each_entry(&group->threads, task, group_links) {
-                if (task != current) {
-                    remaining++;
-                }
-            }
-
-            unlock(&group->lock);
-            unlock(&pids_lock);
-
-            last_remaining = remaining;
-
-            if (remaining == 0) {
-                break;
-            }
-
-            // Sleep a bit to let threads exit
-            struct timespec ts = {0, wait_interval_ms * 1000000L};
-            nanosleep(&ts, NULL);
-            waited_ms += wait_interval_ms;
-        }
-
-        if (waited_ms >= max_wait_ms) {
-            // Threads are stuck in blocking syscalls and won't exit.
-            printk("SAFETY-VALVE[exit]: pid=%d do_exit_group waited %dms, %d threads still stuck → force kill\n",
-                   current->pid, waited_ms, last_remaining);
-
-            // Signal stuck threads with SIGUSR1 repeatedly.
-            // Don't use pthread_cancel — it can corrupt malloc state if the
-            // thread is cancelled inside malloc/free.
-            for (int attempt = 0; attempt < 3; attempt++) {
-                lock(&pids_lock);
-                lock(&group->lock);
-                int still_alive = 0;
-                list_for_each_entry(&group->threads, task, group_links) {
-                    if (task != current && !task->exiting) {
-                        still_alive++;
-                        cpu_poke(&task->cpu);
-                        if (task->thread)
-                            pthread_kill(task->thread, SIGUSR1);
-                    }
-                }
-                unlock(&group->lock);
-                unlock(&pids_lock);
-                if (still_alive == 0) break;
-                struct timespec ts2 = {0, 50 * 1000000L};  // 50ms
-                nanosleep(&ts2, NULL);
-            }
-
-            // If threads are truly stuck in uninterruptible host syscalls,
-            // we accept the leak rather than risking heap corruption.
-            // Mark them as exiting and remove from the thread group list so
-            // that exit_tgroup() sees the group as dead and notifies the parent.
-            lock(&pids_lock);
-            lock(&group->lock);
-            int leaked = 0;
-            struct task *task_tmp;
-            list_for_each_entry_safe(&group->threads, task, task_tmp, group_links) {
-                if (task != current && !task->exiting) {
-                    task->exiting = true;
-                    list_remove(&task->group_links);
-                    // Release resources so pipes get EOF and memory is freed.
-                    if (task->sighand != NULL) {
-                        sighand_release(task->sighand);
-                        task->sighand = NULL;
-                    }
-                    if (task->mm != NULL) {
-                        mm_release(task->mm);
-                        task->mm = NULL;
-                        task->mem = NULL;
-                    }
-                    if (task->files != NULL) {
-                        fdtable_release(task->files);
-                        task->files = NULL;
-                    }
-                    if (task->fs != NULL) {
-                        fs_info_release(task->fs);
-                        task->fs = NULL;
-                    }
-                    leaked++;
-                }
-            }
-            unlock(&group->lock);
-            unlock(&pids_lock);
-            if (leaked > 0)
-                printk("SAFETY-VALVE[exit]: pid=%d leaked %d stuck host threads\n",
-                       current->pid, leaked);
-        } else {
-
-            // Give extra time for pthread cleanup on host system
-            // This ensures:
-            // 1. pthread_exit() completes for all threads
-            // 2. TLS destructors run
-            // 3. Host malloc/arena cleanup happens
-            // 4. Stack unwinding completes (glibc on ARM64)
-            struct timespec extra_delay = {0, 50 * 1000000L};  // 50ms for pthread cleanup
-            nanosleep(&extra_delay, NULL);
-
-#if __APPLE__
-            // Force malloc zone cleanup to release thread-specific caches
-            // This helps prevent pollution between guest processes
-            malloc_zone_pressure_relief(NULL, 0);
-#endif
-        }
-
-        lock(&pids_lock);
-        lock(&group->lock);
     }
 
     unlock(&group->lock);

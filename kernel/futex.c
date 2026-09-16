@@ -154,7 +154,6 @@ static int futex_wait(addr_t uaddr, dword_t val, struct timespec *timeout) {
         }
 
         current->blocking = true;
-        int stall_count = 0;
         struct pollfd pfd = { .fd = current->futex_pipe[0], .events = POLLIN };
         for (;;) {
             // Compute poll timeout
@@ -167,7 +166,7 @@ static int futex_wait(addr_t uaddr, dword_t val, struct timespec *timeout) {
                 if (remain_ms <= 0) { err = _ETIMEDOUT; break; }
                 poll_ms = remain_ms > 100 ? 100 : (int)remain_ms;
             } else {
-                poll_ms = 100; // 100ms safety-net timeout for signal/stall checks
+                poll_ms = 100; // Periodically check pending signals and group exit.
             }
 
             int ret = poll(&pfd, 1, poll_ms);
@@ -180,7 +179,6 @@ static int futex_wait(addr_t uaddr, dword_t val, struct timespec *timeout) {
             }
             // ret == 0 (timeout) or ret < 0 (EINTR from signal) — check conditions
 
-            stall_count++;
             if (current->group->doing_group_exit) {
                 err = _EINTR; break;
             }
@@ -196,33 +194,9 @@ static int futex_wait(addr_t uaddr, dword_t val, struct timespec *timeout) {
             read_wrunlock(&current->mem->lock);
             if (ptr == NULL) { err = _EFAULT; break; }
             if (*ptr != val) { err = 0; break; }
-            // Safety valve: continuous infinite futex stall > 180s.
-            if (timeout == NULL && stall_count >= 1800) { // 1800 * 100ms = 180s
-                bool has_live_children = false;
-                int live = 0;
-                lock(&pids_lock);
-                lock(&current->group->lock);
-                struct task *t;
-                list_for_each_entry(&current->group->threads, t, group_links) {
-                    live++;
-                    struct task *child;
-                    list_for_each_entry(&t->children, child, siblings) {
-                        if (child->group == current->group)
-                            continue;
-                        if (!child->zombie)
-                            has_live_children = true;
-                    }
-                }
-                unlock(&current->group->lock);
-                unlock(&pids_lock);
-                if (live > 1 && !has_live_children) {
-                    printk("SAFETY-VALVE[futex]: pid=%d stalled %ds in futex_wait(uaddr=0x%x val=%d), %d threads, no children → exit_group\n",
-                           current->pid, stall_count / 10, uaddr, val, live);
-                    do_exit_group(0);
-                }
-                if (has_live_children)
-                    stall_count = 0;
-            }
+            // An untimed futex wait may legitimately outlive other workers'
+            // long computations. Only wake, value change, signal, or an
+            // explicit group exit may end it; elapsed time is not an exit.
         }
         current->blocking = false;
 
