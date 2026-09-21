@@ -34,12 +34,17 @@
 
 > 瓢箪から駒。壺中に天地あり。
 
-## Linux ディストリビューション「風」
+## 名前に "Linux" を入れない理由
 
-中身の rootfs は Alpine Linux で、Hyotan 自身はディストリビューションではない。
-カーネルも無い(iSH 由来のシステムコール変換層があるだけだ)。それでも
-"Hyotan Linux" と名乗るのは、短い一語に Linux を添える、あの界隈の名付けの
-作法——Alpine, Arch, Void, Asahi——に連なりたかったからである。
+候補の段階では、Alpine, Arch, Void, Asahi のような「短い一語 + Linux」の作法に
+倣って "Hyotan Linux" と呼んでいた。やめた。
+
+- Hyotan はディストリビューションではない。中身の rootfs は Alpine Linux で、
+  Hyotan 自身にはカーネルも無い(iSH 由来のシステムコール変換層があるだけだ)。
+- Linux は登録商標で、製品名に含めるには手続きが要る。
+- 瓢箪は、添え物がなくても立つ。
+
+残したのは作法のほうだけである。短い一語、自然物、小文字で打てること。
 
 ## In English
 
@@ -53,9 +58,10 @@ sandbox. Most Japanese words for the impossible end in "…so it does not exist.
 This one ends in "…and yet it happened," which is the only kind that fits a
 thing that runs.
 
-Hyotan is not a distribution (the rootfs is Alpine, and there is no kernel —
-only iSH's syscall translation layer). The "Linux" is a nod to the naming
-tradition of short, single-word distros.
+The name is just "Hyotan", not "Hyotan Linux": it is not a distribution (the
+rootfs is Alpine, and there is no kernel — only iSH's syscall translation
+layer), and Linux is a trademark. What it keeps from the distro tradition is the
+shape of the name: one short word, a natural object, typeable in lowercase.
 
 ## 旧名
 

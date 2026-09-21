@@ -1,7 +1,7 @@
-# Hyotan Linux
+# Hyotan
 
-Run coding agents on iOS. Hyotan Linux (`hyotan`) is an ARM64 Linux user-space runtime for
-iOS apps, derived from [iSH](https://github.com/ish-app/ish) via
+Run coding agents on iOS. Hyotan is an ARM64 Linux user-space runtime for iOS
+apps, derived from [iSH](https://github.com/ish-app/ish) via
 [OpenMinis/ish-arm64](https://github.com/OpenMinis/ish-arm64). An app links
 the static libraries, mounts a rootfs, and starts Linux programs (an agent
 such as Codex, plus Python, ripgrep, Typst, …) inside its own process. No
