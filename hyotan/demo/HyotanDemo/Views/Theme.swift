@@ -17,30 +17,41 @@ extension Font {
     }
 }
 
-/// The gourd mark: two circles (upper r 11, lower r 18, centres 30 apart) joined by arcs of
-/// radius 4 that are tangent to both, plus a short curved stem. Drawn in a 44×73 box.
-struct GourdShape: Shape {
-    static let aspect: CGFloat = 44.0 / 73.0
+/// The gourd mark. The body is two true circles (upper r 13.5, lower r 20, centres 31 apart)
+/// joined by arcs of radius 5 tangent to both. The stem is a separate shape because it is
+/// stroked heavier than the outline. Model box: 46×79.5. Generated from the same
+/// parameters as the icon artwork.
+enum Gourd {
+    static let aspect: CGFloat = 46.0 / 79.5
 
+    /// Maps model space (lower circle centred on the origin; y -56.5…23) into `rect`.
+    static func transform(in rect: CGRect) -> CGAffineTransform {
+        let scale = min(rect.width / 46, rect.height / 79.5)
+        return CGAffineTransform(translationX: rect.midX, y: rect.midY - (-56.5 + 23) / 2 * scale).scaledBy(x: scale, y: scale)
+    }
+}
+
+struct GourdBody: Shape {
     func path(in rect: CGRect) -> Path {
-        let scale = min(rect.width / 44, rect.height / 73)
-        // Model space has the lower circle's centre at the origin; the box spans x -22…22, y -51…22.
-        let origin = CGPoint(x: rect.midX, y: rect.midY + 14.5 * scale)
-        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: origin.x + x * scale, y: origin.y + y * scale) }
-        func arc(_ path: inout Path, _ cx: CGFloat, _ cy: CGFloat, _ radius: CGFloat, _ from: CGFloat, _ to: CGFloat, clockwise: Bool) {
-            path.addArc(center: point(cx, cy), radius: radius * scale, startAngle: .degrees(from), endAngle: .degrees(to), clockwise: clockwise)
-        }
-        var path = Path()
-        path.move(to: point(0, -41))
-        path.addCurve(to: point(5, -47.5), control1: point(0, -44.5), control2: point(1.8, -46.8))
-        path.move(to: point(0, -41))
-        arc(&path, 0, -30, 11, -90, 45.4, clockwise: false)
-        arc(&path, 10.53, -19.32, 4, 225.4, 118.6, clockwise: true)
-        arc(&path, 0, 0, 18, -61.4, 241.4, clockwise: false)
-        arc(&path, -10.53, -19.32, 4, 61.4, -45.4, clockwise: true)
-        arc(&path, 0, -30, 11, 134.6, 270, clockwise: false)
-        path.closeSubpath()
-        return path
+        let upper = CGPoint(x: 0, y: -31)
+        var body = Path()
+        body.move(to: CGPoint(x: 0, y: -44.5))
+        body.addArc(center: upper, radius: 13.5, startAngle: .degrees(-90), endAngle: .degrees(36.25), clockwise: false)
+        body.addArc(center: CGPoint(x: 14.919, y: -20.06), radius: 5, startAngle: .degrees(216.25), endAngle: .degrees(126.64), clockwise: true)
+        body.addArc(center: .zero, radius: 20, startAngle: .degrees(-53.36), endAngle: .degrees(233.36), clockwise: false)
+        body.addArc(center: CGPoint(x: -14.919, y: -20.06), radius: 5, startAngle: .degrees(53.36), endAngle: .degrees(-36.25), clockwise: true)
+        body.addArc(center: upper, radius: 13.5, startAngle: .degrees(143.75), endAngle: .degrees(270), clockwise: false)
+        body.closeSubpath()
+        return body.applying(Gourd.transform(in: rect))
+    }
+}
+
+struct GourdStem: Shape {
+    func path(in rect: CGRect) -> Path {
+        var stem = Path()
+        stem.move(to: CGPoint(x: 0, y: -44.0))
+        stem.addCurve(to: CGPoint(x: 5.5, y: -51.5), control1: CGPoint(x: 0, y: -48.0), control2: CGPoint(x: 2, y: -50.5))
+        return stem.applying(Gourd.transform(in: rect))
     }
 }
 
@@ -49,9 +60,11 @@ struct GourdMark: View {
     var lineWidth: CGFloat
 
     var body: some View {
-        GourdShape()
-            .stroke(Palette.ochre, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
-            .frame(width: height * GourdShape.aspect, height: height)
-            .accessibilityHidden(true)
+        ZStack {
+            GourdBody().stroke(Palette.ochre, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
+            GourdStem().stroke(Palette.ochre, style: StrokeStyle(lineWidth: lineWidth * 1.65, lineCap: .round))
+        }
+        .frame(width: height * Gourd.aspect, height: height)
+        .accessibilityHidden(true)
     }
 }
