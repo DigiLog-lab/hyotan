@@ -1,23 +1,23 @@
 #!/bin/bash
 set -euo pipefail
 
-# Build the agentcase iOS runtime: libish, libish_emu, libfakefs, libagentcase
+# Build the hyotan iOS runtime: libish, libish_emu, libfakefs, libhyotan
 # and the guest VDSO for one SDK. The host only compiles; guest programs run on
 # the device inside the linked library.
 #
-#   agentcase/scripts/build-runtime.sh [iphonesimulator|iphoneos]
+#   hyotan/scripts/build-runtime.sh [iphonesimulator|iphoneos]
 #
 # Environment:
-#   AGENTCASE_BUILD_DIR  output root (default: <repo>/.build); per-SDK subdirs
-#   AGENTCASE_TOOLS_DIR  venv with meson/ninja/zig (default: $AGENTCASE_BUILD_DIR/tools)
+#   HYOTAN_BUILD_DIR  output root (default: <repo>/.build); per-SDK subdirs
+#   HYOTAN_TOOLS_DIR  venv with meson/ninja/zig (default: $HYOTAN_BUILD_DIR/tools)
 #   IPHONEOS_DEPLOYMENT_TARGET  minimum iOS version (default: 17.0)
 REPO_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 SDK_NAME="${1:-iphonesimulator}"
 IOS_VERSION="${IPHONEOS_DEPLOYMENT_TARGET:-17.0}"
-BUILD_ROOT="${AGENTCASE_BUILD_DIR:-$REPO_DIR/.build}"
-TOOLS_DIR="${AGENTCASE_TOOLS_DIR:-$BUILD_ROOT/tools}"
+BUILD_ROOT="${HYOTAN_BUILD_DIR:-$REPO_DIR/.build}"
+TOOLS_DIR="${HYOTAN_TOOLS_DIR:-$BUILD_ROOT/tools}"
 BUILD_DIR="$BUILD_ROOT/$SDK_NAME"
-CHECKS_DIR="$REPO_DIR/agentcase/checks"
+CHECKS_DIR="$REPO_DIR/hyotan/checks"
 
 case "$SDK_NAME" in
   iphonesimulator) TARGET="arm64-apple-ios${IOS_VERSION}-simulator" ;;
@@ -75,7 +75,7 @@ CROSS
 
 MESON_ARGS=(--cross-file "$CROSS_FILE" --buildtype release
   -Db_ndebug=true -Dguest_arch=arm64 -Dkernel=ish -Dengine=asbestos
-  -Dlog_handler=nslog -Dagentcase=true -Dvdso_cc="$GUEST_CC")
+  -Dlog_handler=nslog -Dhyotan=true -Dvdso_cc="$GUEST_CC")
 if [ -f "$BUILD_DIR/build.ninja" ]; then
   # A build directory configured before an option existed rejects it on
   # reconfigure; wipe and reuse the same arguments in that case.
@@ -84,15 +84,15 @@ if [ -f "$BUILD_DIR/build.ninja" ]; then
 else
   meson setup "$BUILD_DIR" "$REPO_DIR" "${MESON_ARGS[@]}"
 fi
-ninja -C "$BUILD_DIR" libish.a libish_emu.a libfakefs.a agentcase/libagentcase.a vdso/arm64/libvdso.so.elf
-cp "$BUILD_DIR/agentcase/libagentcase.a" "$BUILD_DIR/libagentcase.a"
+ninja -C "$BUILD_DIR" libish.a libish_emu.a libfakefs.a hyotan/libhyotan.a vdso/arm64/libvdso.so.elf
+cp "$BUILD_DIR/hyotan/libhyotan.a" "$BUILD_DIR/libhyotan.a"
 
 for check in runtime-check runtime-lane-check runtime-exclusive-check runtime-vector-check; do
   "$ZIG_BIN" cc -target aarch64-linux-musl -static -O2 -fno-sanitize=all \
     "$CHECKS_DIR/$check.c" -o "$BUILD_DIR/$check"
 done
 
-for library in libish.a libish_emu.a libfakefs.a libagentcase.a; do
+for library in libish.a libish_emu.a libfakefs.a libhyotan.a; do
   xcrun lipo -info "$BUILD_DIR/$library"
 done
 file "$BUILD_DIR/vdso/arm64/libvdso.so.elf"

@@ -1,7 +1,7 @@
-// agentcase bridge: Linux syscalls and ARM64 instructions run inside this process.
-// The signal recovery sequence follows main.c. Part of agentcase (GPLv3 + LICENSE.IOS).
-#import "agentcase.h"
-#include "agentcase-version.h"
+// hyotan bridge: Linux syscalls and ARM64 instructions run inside this process.
+// The signal recovery sequence follows main.c. Part of hyotan (GPLv3 + LICENSE.IOS).
+#import "hyotan.h"
+#include "hyotan-version.h"
 #include <signal.h>
 #include <sys/stat.h>
 #include <sys/ucontext.h>
@@ -29,11 +29,11 @@ extern void jit_crash_trampoline(void);
 extern const char *sock_tmp_prefix;
 
 static struct task *initTask;
-static NSMutableDictionary<NSNumber *, AgentCaseProcess *> *processes;
+static NSMutableDictionary<NSNumber *, HyotanProcess *> *processes;
 static dispatch_queue_t controlQueue;
 static NSString *bootFailure;
 
-@interface AgentCaseProcess ()
+@interface HyotanProcess ()
 @property(nonatomic, readwrite) int pid;
 @property(nonatomic) int inputFD;
 @property(nonatomic) dispatch_queue_t inputQueue;
@@ -66,7 +66,7 @@ static void processExited(struct task *task, int status) {
     int pid = task->tgid;
     int code = status & 0x7f ? 128 + (status & 0x7f) : (status >> 8) & 0xff;
     dispatch_async(controlQueue, ^{
-        AgentCaseProcess *process = processes[@(pid)];
+        HyotanProcess *process = processes[@(pid)];
         if (process) {
             [process closeInput];
             dispatch_group_notify(process.readers, dispatch_get_main_queue(), ^{
@@ -166,7 +166,7 @@ static NSData *nulList(NSArray<NSString *> *strings) {
     return data;
 }
 
-static void readLines(int fd, AgentCaseProcess *process, BOOL isError, void (^output)(NSString *, BOOL)) {
+static void readLines(int fd, HyotanProcess *process, BOOL isError, void (^output)(NSString *, BOOL)) {
     dispatch_group_enter(process.readers);
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
         NSMutableData *pending = [NSMutableData data];
@@ -195,11 +195,11 @@ static void readLines(int fd, AgentCaseProcess *process, BOOL isError, void (^ou
     });
 }
 
-@implementation AgentCaseProcess
+@implementation HyotanProcess
 - (instancetype)init {
     if ((self = [super init])) {
         _inputFD = -1;
-        _inputQueue = dispatch_queue_create("agentcase.input", DISPATCH_QUEUE_SERIAL);
+        _inputQueue = dispatch_queue_create("hyotan.input", DISPATCH_QUEUE_SERIAL);
         _readers = dispatch_group_create();
     }
     return self;
@@ -249,16 +249,16 @@ static void readLines(int fd, AgentCaseProcess *process, BOOL isError, void (^ou
 }
 @end
 
-@implementation AgentCaseRuntime
+@implementation HyotanRuntime
 + (NSString *)version {
-    return @AGENTCASE_VERSION;
+    return @HYOTAN_VERSION;
 }
 - (instancetype)init {
     if ((self = [super init])) {
         _environment = @[@"HOME=/root", @"PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin", @"LANG=C.UTF-8", @"TERM=dumb"];
         static dispatch_once_t once;
         dispatch_once(&once, ^{
-            controlQueue = dispatch_queue_create("agentcase.control", DISPATCH_QUEUE_SERIAL);
+            controlQueue = dispatch_queue_create("hyotan.control", DISPATCH_QUEUE_SERIAL);
             processes = [NSMutableDictionary dictionary];
         });
     }
@@ -323,9 +323,9 @@ static void readLines(int fd, AgentCaseProcess *process, BOOL isError, void (^ou
         dispatch_async(dispatch_get_main_queue(), ^{ completion(error); });
     });
 }
-- (AgentCaseProcess *)run:(NSString *)executable arguments:(NSArray<NSString *> *)arguments
+- (HyotanProcess *)run:(NSString *)executable arguments:(NSArray<NSString *> *)arguments
               started:(void (^)(int))started output:(void (^)(NSString *, BOOL))output exited:(void (^)(int))exited {
-    AgentCaseProcess *process = [[AgentCaseProcess alloc] init];
+    HyotanProcess *process = [[HyotanProcess alloc] init];
     process.onExit = exited;
     dispatch_async(controlQueue, ^{
         if (!initTask || bootFailure) { dispatch_async(dispatch_get_main_queue(), ^{ output(@"Linux is not running", YES); exited(125); }); return; }

@@ -215,8 +215,8 @@ if get_option('kernel') == 'ish'
         executable('ish', ['main.c'], dependencies: ish)
     endif
 
-    if get_option('agentcase')
-        subdir('agentcase')
+    if get_option('hyotan')
+        subdir('hyotan')
     endif
 
 elif get_option('kernel') == 'linux'

@@ -1,15 +1,15 @@
-// agentcase: run Linux ARM64 programs (coding agents and their tools) inside an
+// hyotan: run Linux ARM64 programs (coding agents and their tools) inside an
 // iOS app process. This is the only header an app should include. Everything
 // under kernel/, fs/ and asbestos/ is internal to the runtime.
 //
-// agentcase is derived from iSH and is licensed under the GPLv3 with the
-// additional terms in LICENSE.IOS. See agentcase/README.md.
+// hyotan is derived from iSH and is licensed under the GPLv3 with the
+// additional terms in LICENSE.IOS. See hyotan/README.md.
 #import <Foundation/Foundation.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
-/// One guest process started with -[AgentCaseRuntime run:...].
-@interface AgentCaseProcess : NSObject
+/// One guest process started with -[HyotanRuntime run:...].
+@interface HyotanProcess : NSObject
 /// Linux pid inside the guest.
 @property(nonatomic, readonly) int pid;
 /// Append a line (a trailing newline is added) to the process's stdin.
@@ -23,7 +23,7 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 /// The embedded Linux runtime. One instance per app; the kernel state is global.
-@interface AgentCaseRuntime : NSObject
+@interface HyotanRuntime : NSObject
 /// Version of the runtime library, from `git describe` at build time.
 + (NSString *)version;
 /// Environment passed to every guest process as KEY=VALUE strings.
@@ -35,7 +35,7 @@ NS_ASSUME_NONNULL_BEGIN
       completion:(void (^)(NSString * _Nullable error))completion;
 /// Start `executable` in the guest with /workspace as its working directory.
 /// Callbacks run on the main queue. `output` receives complete lines.
-- (AgentCaseProcess *)run:(NSString *)executable arguments:(NSArray<NSString *> *)arguments
+- (HyotanProcess *)run:(NSString *)executable arguments:(NSArray<NSString *> *)arguments
                   started:(void (^)(int pid))started
                    output:(void (^)(NSString *line, BOOL standardError))output
                    exited:(void (^)(int code))exited;

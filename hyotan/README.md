@@ -1,11 +1,15 @@
-# agentcase
+# Hyotan Linux
 
-Run coding agents on iOS. agentcase is an ARM64 Linux user-space runtime for
+Run coding agents on iOS. Hyotan Linux (`hyotan`) is an ARM64 Linux user-space runtime for
 iOS apps, derived from [iSH](https://github.com/ish-app/ish) via
 [OpenMinis/ish-arm64](https://github.com/OpenMinis/ish-arm64). An app links
 the static libraries, mounts a rootfs, and starts Linux programs (an agent
 such as Codex, plus Python, ripgrep, Typst, …) inside its own process. No
 code is generated at run time; the interpreter is compiled ahead of time.
+
+The name comes from the Japanese idiom 瓢箪から駒 — a horse out of a gourd: the
+impossible actually happening. See [NAMING.md](NAMING.md). The project was
+called `agentcase` until 2026-09-21.
 
 The current diff against upstream is mostly compatibility work needed to run
 musl/Rust/Python agents: ARM64 instruction fixes, prctl/pdeathsig, large
@@ -15,16 +19,16 @@ upstream/feature-arm64..` for the individual changes.
 
 ## Layout
 
-Everything agentcase adds lives in this directory. The rest of the tree is
+Everything Hyotan adds lives in this directory. The rest of the tree is
 upstream iSH with a small, rebased set of fixes.
 
 | Path | Purpose |
 |---|---|
-| `include/agentcase.h` | Public Objective-C API. The only header an app includes. |
-| `bridge/AgentCaseRuntime.m` | Bridge between the API and the kernel. The only file that includes internal headers. |
+| `include/hyotan.h` | Public Objective-C API. The only header an app includes. |
+| `bridge/HyotanRuntime.m` | Bridge between the API and the kernel. The only file that includes internal headers. |
 | `scripts/build-runtime.sh` | Cross-builds the static libraries and the guest VDSO for one iOS SDK. |
 | `checks/*.c` | Small Linux programs that verify instruction compatibility on the device. |
-| `meson.build` | Adds `libagentcase.a` to the iSH Meson build (`-Dagentcase=true`). |
+| `meson.build` | Adds `libhyotan.a` to the iSH Meson build (`-Dhyotan=true`). |
 
 ## Build
 
@@ -32,29 +36,29 @@ Requires Xcode with the iOS SDK and Python 3.11+. The script creates a venv
 with Meson, Ninja and Zig under the build directory.
 
 ```sh
-agentcase/scripts/build-runtime.sh iphonesimulator
-agentcase/scripts/build-runtime.sh iphoneos
+hyotan/scripts/build-runtime.sh iphonesimulator
+hyotan/scripts/build-runtime.sh iphoneos
 ```
 
 Artifacts land in `.build/<sdk>/`: `libish.a`, `libish_emu.a`, `libfakefs.a`,
-`libagentcase.a`, `vdso/arm64/libvdso.so.elf` and the check programs. Set
-`AGENTCASE_BUILD_DIR` to build elsewhere.
+`libhyotan.a`, `vdso/arm64/libvdso.so.elf` and the check programs. Set
+`HYOTAN_BUILD_DIR` to build elsewhere.
 
 ## Use from an app
 
-Add `agentcase/include` to the header search path, link the four libraries
+Add `hyotan/include` to the header search path, link the four libraries
 plus `-lsqlite3 -lresolv`, and:
 
 ```objc
-AgentCaseRuntime *runtime = [[AgentCaseRuntime alloc] init];
+HyotanRuntime *runtime = [[HyotanRuntime alloc] init];
 runtime.environment = @[@"HOME=/root", @"PATH=/usr/local/bin:/usr/bin:/bin"];
 [runtime bootRoot:rootfsPath workspace:workspacePath completion:^(NSString *error) {
-    AgentCaseProcess *p = [runtime run:@"/bin/sh" arguments:@[@"-c", @"uname -m"]
+    HyotanProcess *p = [runtime run:@"/bin/sh" arguments:@[@"-c", @"uname -m"]
         started:^(int pid) {} output:^(NSString *line, BOOL stderr) {} exited:^(int code) {}];
 }];
 ```
 
-`+[AgentCaseRuntime version]` returns the `git describe` string of the build,
+`+[HyotanRuntime version]` returns the `git describe` string of the build,
 so an app can show exactly which runtime commit it ships.
 
 ## Tracking upstream
@@ -69,7 +73,7 @@ not iOS-specific are submitted upstream so the diff shrinks over time.
 
 ## License
 
-agentcase is licensed under the GPLv3 (see `LICENSE.md`) with the additional
-terms in `LICENSE.IOS`, the same as iSH. An app that links agentcase is a
+Hyotan is licensed under the GPLv3 (see `LICENSE.md`) with the additional
+terms in `LICENSE.IOS`, the same as iSH. An app that links Hyotan is a
 combined work under the GPL; distribute its corresponding source under the
 same terms. The upstream repositories are linked above.
