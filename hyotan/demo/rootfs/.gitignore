@@ -1,0 +1,3 @@
+.cache/
+rootfs-v*.tar.gz
+build.log

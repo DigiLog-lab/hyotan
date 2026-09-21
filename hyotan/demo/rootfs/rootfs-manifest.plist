@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>version</key>
+	<integer>2</integer>
+	<key>archive</key>
+	<string>rootfs-v2.tar.gz</string>
+	<key>sha256</key>
+	<string>0c291833866b4e2dd3e95635e1c0a9d75e96e576f9e9dde6a92856fe6648a620</string>
+	<key>codex</key>
+	<string>0.153.4</string>
+	<key>alpine</key>
+	<string>3.21.7</string>
+</dict>
+</plist>

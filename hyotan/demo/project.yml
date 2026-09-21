@@ -1,0 +1,53 @@
+# The demo links the runtime built from this same tree: every Xcode build first runs
+# ../scripts/build-runtime.sh for the active SDK (incremental, a few seconds) and then
+# links ../../.build/<sdk>/lib*.a. Nothing prebuilt is checked in.
+name: HyotanDemo
+options:
+  bundleIdPrefix: com.digiloglab
+  deploymentTarget:
+    iOS: "26.4"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+    DEVELOPMENT_TEAM: 4D4W8FMKMW
+targets:
+  HyotanDemo:
+    type: application
+    platform: iOS
+    sources:
+      - path: HyotanDemo
+      - path: rootfs/rootfs-manifest.plist
+        buildPhase: resources
+      - path: rootfs/rootfs-v2.tar.gz
+        buildPhase: resources
+    preBuildScripts:
+      - name: Build Hyotan runtime
+        basedOnDependencyAnalysis: false
+        script: |
+          set -eu
+          env -i HOME="$HOME" PATH="/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/usr/local/bin" \
+            IPHONEOS_DEPLOYMENT_TARGET="$IPHONEOS_DEPLOYMENT_TARGET" \
+            "$SRCROOT/../scripts/build-runtime.sh" "$PLATFORM_NAME"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.digiloglab.hyotan
+        PRODUCT_NAME: Hyotan
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Hyotan
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_UIUserInterfaceStyle: Dark
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        TARGETED_DEVICE_FAMILY: "1"
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+        SWIFT_OBJC_BRIDGING_HEADER: HyotanDemo/Hyotan-Bridging-Header.h
+        HEADER_SEARCH_PATHS: $(SRCROOT)/../include
+        LIBRARY_SEARCH_PATHS: $(SRCROOT)/../../.build/$(PLATFORM_NAME)
+        OTHER_LDFLAGS: ["$(inherited)", "-lhyotan", "-lish", "-lish_emu", "-lfakefs", "-lresolv", "-lsqlite3"]
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor

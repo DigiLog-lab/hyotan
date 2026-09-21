@@ -29,6 +29,7 @@ upstream iSH with a small, rebased set of fixes.
 | `scripts/build-runtime.sh` | Cross-builds the static libraries and the guest VDSO for one iOS SDK. |
 | `checks/*.c` | Small Linux programs that verify instruction compatibility on the device. |
 | `meson.build` | Adds `libhyotan.a` to the iSH Meson build (`-Dhyotan=true`). |
+| `demo/` | iOS demo app: boots the runtime built from this tree and runs Codex in it. See `demo/README.md`. |
 
 ## Build
 
