@@ -17,24 +17,26 @@ extension Font {
     }
 }
 
-/// The gourd mark, drawn in a 48×64 box.
+/// The gourd mark, drawn in a 64×64 box: a small upper bulb, a short waist and a lower bulb
+/// that is wider than it is tall.
 struct GourdShape: Shape {
     func path(in rect: CGRect) -> Path {
-        let scale = min(rect.width / 48, rect.height / 64)
-        let origin = CGPoint(x: rect.midX - 24 * scale, y: rect.midY - 32 * scale)
+        let scale = min(rect.width, rect.height) / 64
+        let origin = CGPoint(x: rect.midX - 32 * scale, y: rect.midY - 32 * scale)
         func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: origin.x + x * scale, y: origin.y + y * scale) }
         var path = Path()
-        path.move(to: point(24, 8))
-        path.addCurve(to: point(30, 3), control1: point(24, 5), control2: point(26, 3))
-        path.move(to: point(24, 8))
-        path.addCurve(to: point(15, 18), control1: point(18, 8), control2: point(15, 13))
-        path.addCurve(to: point(18, 26), control1: point(15, 22), control2: point(17, 24))
-        path.addCurve(to: point(8, 43), control1: point(12, 29), control2: point(8, 35))
-        path.addCurve(to: point(24, 62), control1: point(8, 54), control2: point(15, 62))
-        path.addCurve(to: point(40, 43), control1: point(33, 62), control2: point(40, 54))
-        path.addCurve(to: point(30, 26), control1: point(40, 35), control2: point(36, 29))
-        path.addCurve(to: point(33, 18), control1: point(31, 24), control2: point(33, 22))
-        path.addCurve(to: point(24, 8), control1: point(33, 13), control2: point(30, 8))
+        path.move(to: point(32, 11))
+        path.addCurve(to: point(37.5, 5), control1: point(32, 7.5), control2: point(34, 5.5))
+        path.move(to: point(32, 11))
+        path.addCurve(to: point(42.5, 21), control1: point(37.8, 11), control2: point(42.5, 15.5))
+        path.addCurve(to: point(37.5, 31.5), control1: point(42.5, 26), control2: point(37.5, 27.5))
+        path.addCurve(to: point(49.5, 44), control1: point(37.5, 35), control2: point(49.5, 36))
+        path.addCurve(to: point(32, 59.5), control1: point(49.5, 52.6), control2: point(41.7, 59.5))
+        path.addCurve(to: point(14.5, 44), control1: point(22.3, 59.5), control2: point(14.5, 52.6))
+        path.addCurve(to: point(26.5, 31.5), control1: point(14.5, 36), control2: point(26.5, 35))
+        path.addCurve(to: point(21.5, 21), control1: point(26.5, 27.5), control2: point(21.5, 26))
+        path.addCurve(to: point(32, 11), control1: point(21.5, 15.5), control2: point(26.2, 11))
+        path.closeSubpath()
         return path
     }
 }
@@ -46,7 +48,7 @@ struct GourdMark: View {
     var body: some View {
         GourdShape()
             .stroke(Palette.ochre, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
-            .frame(width: height * 0.75, height: height)
+            .frame(width: height, height: height)
             .accessibilityHidden(true)
     }
 }
