@@ -39,7 +39,7 @@ void mem_init(struct mem *mem) {
     mem->mmu.asbestos = asbestos_new(&mem->mmu);
     mem->mmu.changes = 0;
     wrlock_init(&mem->lock);
-    lock_init(&mem->cow_lock);
+    fair_lock_init(&mem->cow_lock);
 }
 
 struct mem_reservation *mem_find_reservation(struct mem *mem, page_t page) {
@@ -409,7 +409,7 @@ void mem_init(struct mem *mem) {
     mem->mmu.asbestos = asbestos_new(&mem->mmu);
     mem->mmu.changes = 0;
     wrlock_init(&mem->lock);
-    lock_init(&mem->cow_lock);
+    fair_lock_init(&mem->cow_lock);
 }
 
 void mem_destroy(struct mem *mem) {

@@ -394,10 +394,14 @@ dword_t sys_futex(addr_t uaddr, dword_t op, dword_t val, addr_t timeout_or_val2,
         if (user_get(timeout_or_val2, timeout_))
             return _EFAULT;
         if (cmd == FUTEX_WAIT_BITSET_) {
-            // FUTEX_WAIT_BITSET uses absolute CLOCK_REALTIME timeout;
-            // convert to relative for our futex_wait implementation.
+            // FUTEX_WAIT_BITSET takes an absolute deadline. It is measured
+            // on CLOCK_MONOTONIC unless FUTEX_CLOCK_REALTIME is set (Linux
+            // futex(2)); Rust std's park_timeout/Condvar::wait_timeout pass a
+            // CLOCK_MONOTONIC deadline. The guest's CLOCK_MONOTONIC is the
+            // host's (kernel/time.c clockid_to_real). Convert to relative for
+            // our futex_wait implementation.
             struct timespec now;
-            clock_gettime(CLOCK_REALTIME, &now);
+            clock_gettime(op & FUTEX_CLOCK_REALTIME_ ? CLOCK_REALTIME : CLOCK_MONOTONIC, &now);
             timeout.tv_sec = timeout_.sec - now.tv_sec;
             timeout.tv_nsec = timeout_.nsec - now.tv_nsec;
             if (timeout.tv_nsec < 0) {

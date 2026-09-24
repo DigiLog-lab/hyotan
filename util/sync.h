@@ -36,6 +36,28 @@ static inline void lock_init(lock_t *lock) {
 #endif
 }
 
+// A lock that hands ownership to waiters in arrival order. Darwin mutexes
+// default to PTHREAD_MUTEX_POLICY_FIRSTFIT_NP, which lets a thread that unlocks
+// and immediately relocks win again and again while other waiters starve. Use
+// this for a lock that a thread releases and retakes in a tight loop (the
+// per-address-space cow_lock held while a guest CPU runs).
+static inline void fair_lock_init(lock_t *lock) {
+#if __APPLE__
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_setpolicy_np(&attr, PTHREAD_MUTEX_POLICY_FAIRSHARE_NP);
+    pthread_mutex_init(&lock->m, &attr);
+    pthread_mutexattr_destroy(&attr);
+#if LOCK_DEBUG
+    lock->debug = (struct lock_debug) {
+        .initialized = true,
+    };
+#endif
+#else
+    lock_init(lock);
+#endif
+}
+
 #if LOCK_DEBUG
 #define LOCK_INITIALIZER {PTHREAD_MUTEX_INITIALIZER, 0, { .initialized = true }}
 #else
